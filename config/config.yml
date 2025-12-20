@@ -1,0 +1,16 @@
+game_name: "Animal Crossing: New Leaf"
+plateform: "3DS"
+base_rom: "origin/code.bin"
+
+compiler:
+  type: "gcc"
+  version: "unknown"
+  flags: "-02 -marm -march=armv6k"
+
+sections:
+  - name: "main"
+    start: 0x0
+    end: 0x0
+    type: "code"
+
+functions: []

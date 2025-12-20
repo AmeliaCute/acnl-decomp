@@ -1,0 +1,12 @@
+{
+  "valide_titles":
+  {
+    "EGDP":
+    {
+      "region": "Europe",
+      "languages": ["en-GB", "fr", "de", "it", "es", "nl"],
+      "id": "0004000000086400",
+      "sha256": "c4363cd08b059fca54c3e40b3dc824edd1a2537b3da0994b83de292976058325"
+    }
+  }
+}
