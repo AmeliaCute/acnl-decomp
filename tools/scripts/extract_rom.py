@@ -6,9 +6,6 @@ import shutil
 import subprocess
 import sys
 
-from tools.scripts.exheader_parser import ExHeaderParser, IDAConfigGenerator
-
-
 REQUIRED_TOOLS = [
   "3dstool", 
   "ctrtool"
@@ -260,16 +257,8 @@ class ROMExtractor:
         if not self._extract_cxi():
             return False
         
-        exefs_dir = self.work_dir / "exefs"
-        parser = ExHeaderParser(exefs_dir)
-        exheader_info = parser.parse()
-        parser.print_info(exheader_info)
-        
         if not self._copy_code_bin():
             return False
 
-        ida_config_path = self.origin_dir / "ida_config.md"
-        IDAConfigGenerator.generate(exheader_info, self.version, ida_config_path)
-        
         # self._cleanup()
         return True
