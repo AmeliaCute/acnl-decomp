@@ -116,7 +116,7 @@ class ToolsInstaller:
         print("[Tools] verifying installation")
         
         all_good = True
-        for tool_config in self.config['Tools']:
+        for tool_config in self.config['tools']:
             tool_name = tool_config['name']
             if self.check_tool_exists(tool_name):
                 print(f"[Tools] {tool_name} is available")
@@ -140,13 +140,13 @@ class ToolsInstaller:
         print(f"[Tools] Tools directory: {self.Tools_dir}")
         
         if not self.force:
-            all_exist = all(self.check_tool_exists(t['name']) for t in self.config['Tools'])
+            all_exist = all(self.check_tool_exists(t['name']) for t in self.config['tools'])
             if all_exist:
                 print("[Tools] all Tools already installed")
                 return True
         
         success_count = 0
-        for tool_config in self.config['Tools']:
+        for tool_config in self.config['tools']:
             if self.install_tool(tool_config):
                 success_count += 1
             else:
@@ -163,7 +163,7 @@ class ToolsInstaller:
     
     def _print_manual_install(self):
         print("[Tools] please install missing Tools manually:")
-        for tool_config in self.config['Tools']:
+        for tool_config in self.config['tools']:
             print(f"[Tools] - {tool_config['name']}: {tool_config['repository']}")
 
 
