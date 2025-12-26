@@ -11,6 +11,7 @@
 !origin
 !origin/*
 !origin/**/
+!origin/**/*.map
 
 !src
 !src/**/*
