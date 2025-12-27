@@ -1,4 +1,4 @@
-void start(void)
+void _anonymous_namespace___NoticeEyecatcher_func_100000(void)
 {
   asm volatile("bx lr");
 }
