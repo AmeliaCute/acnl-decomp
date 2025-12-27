@@ -24,6 +24,7 @@
 
 !configure.py
 !setup_tools.py
+!diff_settings.py
 
 !README.md
 !requirements.txt

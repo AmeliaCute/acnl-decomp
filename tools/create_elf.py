@@ -12,117 +12,212 @@ class ELFCreator:
         self.code_elf = origin_dir / "code.elf"
         self.symbols = symbols
         self.base_address = base_address
+        self.text_size = self.code_bin.stat().st_size
         
     def create_base_elf(self):
-        print("Creating ELF base")
+        print("Creating executable ELF from code.bin")
+        
+        temp_obj = self.code_elf.with_suffix('.tmp.o')
         
         cmd = [
-          'arm-none-eabi-objcopy',
-          '-I', 'binary',
-          '-O', 'elf32-littlearm',
-          '-B', 'arm',
-          '--rename-section', '.data=.text',
-          '--set-section-flags', '.text=alloc,code,readonly,contents',
-          '--change-section-address', f'.text=0x{self.base_address:08X}',
-          str(self.code_bin),
-          str(self.code_elf)
+            'arm-none-eabi-objcopy',
+            '-I', 'binary',
+            '-O', 'elf32-littlearm',
+            '-B', 'arm',
+            '--rename-section', '.data=.text',
+            '--set-section-flags', '.text=code,alloc,load,readonly,contents',
+            str(self.code_bin),
+            str(temp_obj)
         ]
         
-        result = subprocess.run(cmd, cwd=Path("."), capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"arm-none-eabi-objcopy error: {result.stderr}")
+            return False
         
-        print(f"Setting .text VMA to 0x{self.base_address:08X}...")
+        linker_script = self.code_elf.with_suffix('.ld')
+        with open(linker_script, 'w') as f:
+            f.write(f"""
+OUTPUT_FORMAT("elf32-littlearm")
+OUTPUT_ARCH(arm)
+/* no ENTRY */
+
+PHDRS
+{{
+    text PT_LOAD FLAGS(5); /* Read + Execute */
+}}
+
+SECTIONS
+{{
+    . = 0x{self.base_address:08X};
+    
+    .text : ALIGN(4) {{
+        *(.text)
+        *(.text.*)
+        . = ALIGN(4);
+    }} :text
+    
+    /DISCARD/ : {{
+        *(.ARM.exidx*)
+        *(.ARM.extab*)
+        *(.note.*)
+        *(.comment)
+        *(.eh_frame*)
+    }}
+}}
+""")
+        
         cmd = [
-          'arm-none-eabi-objcopy',
-          '--change-section-vma', f'.text=0x{self.base_address:08X}',
-          '--change-section-lma', f'.text=0x{self.base_address:08X}',
-          str(self.code_elf),
-          str(self.code_elf)
+            'arm-none-eabi-ld',
+            '-T', str(linker_script),
+            '--oformat=elf32-littlearm',
+            '-o', str(self.code_elf),
+            str(temp_obj)
         ]
         
-        result = subprocess.run(cmd, cwd=Path("."), capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
-            print(f"arm-none-eabi-objcopy error: {result.stderr}")
+            print(f"arm-none-eabi-ld error: {result.stderr}")
+            temp_obj.unlink(missing_ok=True)
+            linker_script.unlink(missing_ok=True)
+            return False
         
+        temp_obj.unlink(missing_ok=True)
+        linker_script.unlink(missing_ok=True)
+        
+        result = subprocess.run(['arm-none-eabi-readelf', '-h', str(self.code_elf)], capture_output=True, text=True) 
+        
+        if 'EXEC' in result.stdout:
+            print("✓ Executable ELF created successfully")
+        else:
+            print("WARNING: ELF type might not be EXEC")
+            
         result = subprocess.run(
-            ['arm-none-eabi-readelf', '-S', str(self.code_elf)],
+            ['arm-none-eabi-readelf', '-l', str(self.code_elf)],
             capture_output=True, text=True
         )
         
-        if '00100000' in result.stdout:
-            print("✓ Base ELF created with correct VMA")
+        if 'LOAD' in result.stdout:
+            print("✓ Program headers present")
         else:
-            print("WARNING: VMA might not be set correctly")
+            print("WARNING: No program headers found")
         
         return True
       
     def add_symbols(self):
-        print("Adding symbols")
+        print("\nAdding symbols to ELF...")
+        
+        valid_symbols = []
+        invalid_count = 0
+        
+        for sym in self.symbols:
+            offset = sym.address - self.base_address
+            if 0 <= offset < self.text_size:
+                valid_symbols.append(sym)
+            else:
+                invalid_count += 1
+        
+        if invalid_count > 0:
+            print(f"Skipped {invalid_count} out-of-bounds symbols")
+        
+        print(f"Adding {len(valid_symbols)} valid symbols...")
+        
         temp_elf = self.code_elf.with_suffix('.tmp')
         shutil.copy(self.code_elf, temp_elf)
         
-        batch_size = 250
-        for i in range(0, len(self.symbols), batch_size):
-            batch = self.symbols[i:i+batch_size]
+        batch_size = 400
+        for i in range(0, len(valid_symbols), batch_size):
+            batch = valid_symbols[i:i+batch_size]
 
             cmd = ['arm-none-eabi-objcopy']
-            for object in batch:
-                offset = object.address - self.base_address
+            for symbol in batch:
+                offset = (symbol.address - self.base_address) | 1
               
                 cmd.extend([
-                  '--add-symbol',
-                  f'{object.name}=.text:0x{offset:X},{object.type},global'
+                    '--add-symbol',
+                    f'{symbol.name}=.text:0x{offset:X},{symbol.type},global'
                 ])
                 
             cmd.extend([str(temp_elf), str(temp_elf)])
-            result = subprocess.run(cmd, cwd=Path("."), capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True)
             if result.returncode != 0:
                 print(f"arm-none-eabi-objcopy error: {result.stderr}")
+                temp_elf.unlink(missing_ok=True)
+                return False
                 
-            if i % 500 == 0 and i > 0:
-                print(f"\r{i}/{len(self.symbols)} symbols injected", end="", flush=True)
+            if (i + batch_size) % 1000 == 0:
+                print(f"▢ Progress: {i + batch_size}/{len(valid_symbols)} symbols", end='\r', flush=True)
 
         shutil.move(temp_elf, self.code_elf)
-        print("\n✓ All symboles addded")
+        print(f"\n✓ {len(valid_symbols)} symbols added successfully")
         
         return True
       
     def create_elf_with_symbols(self):
+        print("="*32)
+        print("Creating ELF with symbols")
+        print("="*32)
+        print(f"Input:  {self.code_bin}")
+        print(f"Output: {self.code_elf}")
+        print(f"Size:   0x{self.text_size:X} bytes")
+        print(f"Base:   0x{self.base_address:08X}")
+        print()
+        
         if not self.create_base_elf():
             return False
           
         if not self.add_symbols():
             return False
           
-        print(f"\n✓ full ELF with symboles created at: {self.code_elf}")
+        print(f"\n✓ Full ELF with symbols created at: {self.code_elf}")
         
         self.verify_elf()
         return True
           
     def verify_elf(self):
-        print("\nELF Verification:")
+        print("\n" + "="*50)
+        print("ELF Verification")
+        print("="*50)
+        
+        result = subprocess.run(
+            ['arm-none-eabi-readelf', '-h', str(self.code_elf)],
+            capture_output=True, text=True
+        )
+        
+        print("\nELF Header:")
+        for line in result.stdout.split('\n'):
+            if 'Type:' in line or 'Entry point' in line or 'Machine:' in line:
+                print(f"  {line.strip()}")
         
         result = subprocess.run(
             ['arm-none-eabi-readelf', '-S', str(self.code_elf)],
             capture_output=True, text=True
         )
         
-        if result.returncode == 0:
-            print("\n  Sections:")
-            for line in result.stdout.split('\n'):
-                if '.text' in line or 'Name' in line or 'Addr' in line:
-                    print(f"    {line.strip()}")
+        print("\nSections:")
+        for line in result.stdout.split('\n'):
+            if '.text' in line or 'Name' in line:
+                print(f"  {line.strip()}")
+        
+        result = subprocess.run(['arm-none-eabi-readelf', '-l', str(self.code_elf)], capture_output=True, text=True)
+        
+        has_headers = 'LOAD' in result.stdout
+        print(f"\nProgram Headers: {'✓ Present' if has_headers else 'Missing'}")
+        
+        result = subprocess.run(['arm-none-eabi-nm', str(self.code_elf)], capture_output=True, text=True)
+        
+        symbol_count = len([l for l in result.stdout.split('\n') if l.strip()])
+        print(f"Total Symbols: {symbol_count}")
         
         result = subprocess.run(
             ['arm-none-eabi-nm', '-n', str(self.code_elf)],
             capture_output=True, text=True
         )
         
-        if result.returncode == 0:
-            symbols_list = [s for s in result.stdout.split('\n') if s.strip() and not s.startswith('00000000')]
-            print(f"\n  Total symbols: {len(symbols_list)}")
-            print("\n  First 5 symbols (should start at 0x00100000):")
-            for line in symbols_list[:5]:
-                if line.strip():
-                    print(f"    {line}")
+        symbols_list = [s for s in result.stdout.split('\n') if s.strip()]
+        print("\nFirst 5 symbols:")
+        for line in symbols_list[:5]:
+            if line.strip():
+                print(f"  {line}")
+        
+        print("\n" + "="*50)

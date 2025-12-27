@@ -60,6 +60,7 @@ class IDAMap:
                 
     def parse_symbols(self, lines):
         in_symbols = False
+        text_size = 0x900000
 
         for line in lines:
             if 'Publics by Value' in line or 'Address' in line and 'Publics' in line:
@@ -77,6 +78,12 @@ class IDAMap:
                         address = parse_hex(addr_hex)
                     except ValueError:
                         continue
+                    
+                    # FIX: WEIRD
+                    offset = address - self.base_address
+                    if offset < 0 or offset >= text_size:
+                        print(f"▢ Skipping out-of-bounds symbol: {name} at 0x{address:08X} (offset: 0x{offset:X})           ", end="\r", flush=True)
+                        continue
                       
                     symbol_type = "function"
                     if name.startswith("a") or any(name.startswith(prefix) for prefix in ["byte_", "dbl_", "def_", "flt_", "word_", "dword_", "qword_", "unk_", "off_", "stru_", "typeinfo for", "vtable for"]):
@@ -92,7 +99,7 @@ class IDAMap:
         if self.base_address == 0:
             self.base_address = self.symbols[0].address
             
-        print(f"✓ {len(self.symbols)} symbols found!")
+        print(f"\n✓ {len(self.symbols)} symbols found!")
         print(f"✓ Base address: 0x{self.base_address:08X}")
         
     def export_symbols_txt(self, output_file):
