@@ -11,16 +11,20 @@
 !origin
 !origin/*
 !origin/**/
+!origin/**/*.map
 
 !src
 !src/**/*
 
 !tools/
-!tools/scripts/
-!tools/scripts/**/*.py
+!tools/*.py
 
 !.flake8
 !.gitignore
 
 !configure.py
 !setup_tools.py
+!diff_settings.py
+
+!README.md
+!requirements.txt
