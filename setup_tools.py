@@ -18,14 +18,14 @@ from pathlib import Path
 class ToolsInstaller:
     def __init__(self, force: bool = False):
         self.config_path = Path("config/tools.json")
-        self.tools_dir = Path("tools")
+        self.tools_dir = Path("tools") / "bin"
+        self.tools_dir.mkdir(exist_ok=True)
         self.force = force
         self.system = platform.system()
         
         self.config = self._load_config()
         
     def _load_config(self) -> dict:
-        """Load tools configuration"""
         try:
             with open(self.config_path, 'r') as f:
                 return json.load(f)
@@ -34,10 +34,10 @@ class ToolsInstaller:
             sys.exit(1)
     
     def check_tool_exists(self, tool_name: str) -> bool:
-        """Check if tool exists in tools directory or system PATH"""
-        tool_path = self.tools_dir / (tool_name + (".exe" if self.system == "Windows" else ""))
+        tool_path = self.tools_dir / tool_name
+        tool_path_exe = self.tools_dir / (tool_name + ".exe")
         
-        if tool_path.exists():
+        if tool_path.exists() or tool_path_exe.exists():
             return True
         
         which_cmd = "where" if self.system == "Windows" else "which"
@@ -45,7 +45,6 @@ class ToolsInstaller:
         return result.returncode == 0
     
     def download_file(self, url: str, destination: Path) -> bool:
-        """Download file with progress indication"""
         print(f"[INFO] Downloading from: {url}")
         
         def progress_hook(count, block_size, total_size):
@@ -63,7 +62,6 @@ class ToolsInstaller:
             return False
     
     def extract_archive(self, archive_path: Path, tool_name: str) -> bool:
-        """Extract zip or tar.gz archive"""
         try:
             print(f"[INFO] Extracting {tool_name}...")
             
@@ -83,7 +81,6 @@ class ToolsInstaller:
             return False
     
     def make_executable(self, tool_path: Path):
-        """Make file executable on Unix systems"""
         if self.system != "Windows":
             try:
                 current_permissions = tool_path.stat().st_mode
@@ -92,7 +89,6 @@ class ToolsInstaller:
                 print(f"[WARNING] Could not make executable: {e}")
     
     def install_tool(self, tool_config: dict) -> bool:
-        """Install a single tool"""
         tool_name = tool_config['name']
         
         if not self.force and self.check_tool_exists(tool_name):
@@ -109,44 +105,60 @@ class ToolsInstaller:
         
         url = urls[self.system]
         
+        is_archive = False
+        is_direct_binary = False
+        
         if url.endswith('.zip'):
             archive_ext = '.zip'
+            is_archive = True
         elif url.endswith('.tar.gz') or url.endswith('.tgz'):
             archive_ext = '.tar.gz'
-        else:
+            is_archive = True
+        elif url.endswith('.exe'):
             archive_ext = '.exe'
+            is_direct_binary = True
+        else:
+            archive_ext = ''
+            is_direct_binary = True
         
-        archive_path = self.tools_dir / f"{tool_name}_download{archive_ext}"
+        if is_direct_binary and not archive_ext:
+            download_path = self.tools_dir / (tool_name + (".exe" if self.system == "Windows" else ""))
+        else:
+            download_path = self.tools_dir / f"{tool_name}{archive_ext}"
         
-        if not self.download_file(url, archive_path):
+        if not self.download_file(url, download_path):
             return False
         
-        if archive_ext != '.exe':
-            if not self.extract_archive(archive_path, tool_name):
-                archive_path.unlink(missing_ok=True)
+        if is_archive:
+            if not self.extract_archive(download_path, tool_name):
+                download_path.unlink(missing_ok=True)
                 return False
-            archive_path.unlink()
-        
-        tool_path = self.tools_dir / (tool_name + (".exe" if self.system == "Windows" else ""))
-        if tool_path.exists():
-            if self.system != "Windows":
-                self.make_executable(tool_path)
+            download_path.unlink()
             
+            tool_path = self.tools_dir / (tool_name + (".exe" if self.system == "Windows" else ""))
+            
+            if not tool_path.exists():
+                for file in self.tools_dir.rglob(tool_name + ("*" if self.system == "Windows" else "")):
+                    if file.is_file() and (file.name == tool_name or file.name == f"{tool_name}.exe"):
+                        file.rename(tool_path)
+                        break
+            
+            if not tool_path.exists():
+                print(f"[ERROR] {tool_name} not found after extraction")
+                return False
+        else:
+            tool_path = download_path
+        
+        if self.system != "Windows":
+            self.make_executable(tool_path)
+        
+        if tool_path.exists():
             size_kb = tool_path.stat().st_size / 1024
             print(f"[SUCCESS] {tool_name} installed ({size_kb:.2f} KB)")
             return True
-        
-        for file in self.tools_dir.rglob(tool_name + ("*" if self.system == "Windows" else "")):
-            if file.is_file() and (file.name == tool_name or file.name == f"{tool_name}.exe"):
-                target = self.tools_dir / file.name
-                file.rename(target)
-                if self.system != "Windows":
-                    self.make_executable(target)
-                print(f"[SUCCESS] {tool_name} installed")
-                return True
-        
-        print(f"[ERROR] {tool_name} not found after extraction")
-        return False
+        else:
+            print(f"[ERROR] {tool_name} installation failed")
+            return False
     
     def verify_installation(self) -> bool:
         """Verify all tools are installed"""

@@ -5,7 +5,7 @@ from typing import Optional
 
 
 def find_tool(tool_name: str) -> Optional[Path]:
-    tools_dir = Path(".") / "tools" 
+    tools_dir = Path(".") / "tools" / "bin"
   
     if sys.platform == "win32":
         tool_path = tools_dir / f"{tool_name}.exe"

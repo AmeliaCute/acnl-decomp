@@ -25,9 +25,9 @@
       "description": "Binary diffing tool for decompilation projects",
       "repository": "https://github.com/encounter/objdiff",
       "urls": {
-        "Linux": "https://github.com/encounter/objdiff/releases/download/v2.4.0/objdiff-linux-x86_64",
-        "Darwin": "https://github.com/encounter/objdiff/releases/download/v2.4.0/objdiff-macos-arm64",
-        "Windows": "https://github.com/encounter/objdiff/releases/download/v2.4.0/objdiff-windows-x86_64"
+        "Linux": "https://github.com/encounter/objdiff/releases/latest/download/objdiff-linux-x86_64",
+        "Darwin": "https://github.com/encounter/objdiff/releases/latest/download/objdiff-macos-arm64",
+        "Windows": "https://github.com/encounter/objdiff/releases/latest/download/objdiff-windows-x86_64.exe"
       }
     }
   ]
