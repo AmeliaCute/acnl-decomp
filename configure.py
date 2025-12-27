@@ -220,7 +220,7 @@ clean:
     
 def main():
     parser = argparse.ArgumentParser(description="Configure ACNL decompilation project", formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--region", type=str, default="EGDP", help="Game region (default: EGDP)")
+    parser.add_argument("--region", type=str, default="EAAP", help="Game region (default: EAAP)")
     
     args = parser.parse_args()
     root_dir = Path(".")

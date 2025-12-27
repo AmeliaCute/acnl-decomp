@@ -125,7 +125,7 @@ SECTIONS
         temp_elf = self.code_elf.with_suffix('.tmp')
         shutil.copy(self.code_elf, temp_elf)
         
-        batch_size = 400
+        batch_size = 200
         for i in range(0, len(valid_symbols), batch_size):
             batch = valid_symbols[i:i+batch_size]
 
@@ -175,9 +175,9 @@ SECTIONS
         return True
           
     def verify_elf(self):
-        print("\n" + "="*50)
+        print("\n" + "="*32)
         print("ELF Verification")
-        print("="*50)
+        print("="*32)
         
         result = subprocess.run(
             ['arm-none-eabi-readelf', '-h', str(self.code_elf)],
