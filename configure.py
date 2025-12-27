@@ -6,6 +6,7 @@ Main script for project setup, symbol management, and file generation
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import List, Dict
@@ -359,7 +360,7 @@ rule objcopy
 
 
 def generate_objdiff_config(symbols: List[Dict], root_dir: Path, region: str):
-    """Generate objdiff.json"""
+    """Generate objdiff.json with correct paths"""
     objdiff_file = root_dir / "objdiff.json"
     
     functions = [s for s in symbols if s["type"] == "function"]
@@ -367,12 +368,12 @@ def generate_objdiff_config(symbols: List[Dict], root_dir: Path, region: str):
     units = []
     for symbol in functions:
         unit = {
-            "name": f"main/ACNL/{symbol['name']}",
-            "target_path": f"origin/{region}/code.bin",
+            "name": symbol['name'],
+            "target_path": f"build/asm/{symbol['name']}.o",
             "base_path": f"build/{symbol['name']}.o",
             "metadata": {
-                "address": f"0x{symbol['address']:08X}",
-                "size": symbol["size"],
+                "complete": False,
+                "mapped": True,
                 "source_path": symbol["source_file"]
             }
         }
@@ -381,9 +382,10 @@ def generate_objdiff_config(symbols: List[Dict], root_dir: Path, region: str):
     config = {
         "$schema": "https://raw.githubusercontent.com/encounter/objdiff/main/config.schema.json",
         "custom_make": "ninja",
-        "build_target": False,
+        "build_target": True,
         "watch_patterns": ["src/**/*.c", "include/**/*.h"],
-        "units": units
+        "units": units,
+        "map_file": "symbols/symbols.txt"
     }
     
     with open(objdiff_file, 'w', encoding='utf-8') as f:
@@ -393,29 +395,393 @@ def generate_objdiff_config(symbols: List[Dict], root_dir: Path, region: str):
 
 
 def generate_symbol_map(symbols: List[Dict], root_dir: Path):
-    """Generate human-readable symbol map"""
+    """Generate symbol map file in format objdiff expects"""
     symbols_dir = root_dir / "symbols"
     symbols_dir.mkdir(exist_ok=True)
     
     map_file = symbols_dir / "symbols.txt"
     
     with open(map_file, 'w', encoding='utf-8') as f:
-        f.write("# Symbol Map\n")
-        f.write("# Auto-generated from symbols.json\n\n")
-        
+        # Write in format: address type name
         for symbol in sorted(symbols, key=lambda s: s["address"]):
             type_char = 'T' if symbol["type"] == "function" else 'D'
-            f.write(f"{symbol['address']:08X} {type_char} {symbol['name']:<40} ")
-            f.write(f"# {symbol['source_file']}\n")
+            # Format: 00100000 T start
+            f.write(f"{symbol['address']:08x} {type_char} {symbol['name']}\n")
     
     print(f"✓ Generated {map_file}")
+    
+
+def inject_symbols_to_elf(symbols: List[Dict], root_dir: Path, region: str):
+    """
+    Creates a proper ELF with symbols that objdiff can parse.
+    Simple two-step approach: create ELF, then add symbols to section.
+    """
+    origin_dir = root_dir / "origin" / region
+    code_bin = origin_dir / "code.bin"
+    code_elf = origin_dir / "code.elf"
+    
+    if not code_bin.exists():
+        print(f"ERROR: {code_bin} not found")
+        return
+    
+    base_address = 0x00100000
+    code_size = code_bin.stat().st_size
+    
+    print(f"Creating ELF with symbols from {code_bin}...")
+    print(f"  Binary size: 0x{code_size:x} bytes ({code_size / 1024 / 1024:.2f} MB)")
+    
+    build_dir = root_dir / "build"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    
+    print("Step 1: Converting binary to ELF...")
+    
+    try:
+        subprocess.run([
+            "arm-none-eabi-objcopy",
+            "--input-target=binary",
+            "--output-target=elf32-littlearm",
+            "--binary-architecture=arm",
+            f"--change-section-address=.data={base_address:#x}",
+            "--rename-section=.data=.text,alloc,load,readonly,code,contents",
+            str(code_bin),
+            str(code_elf)
+        ], check=True, capture_output=True)
+        print("✓ Created base ELF")
+    except subprocess.CalledProcessError as e:
+        print(f"ERROR: Failed to create ELF: {e}")
+        if e.stderr:
+            print(f"  {e.stderr.decode()}")
+        return
+    
+    # Step 2: Remove auto-generated symbols
+    print("Step 2: Cleaning auto-generated symbols...")
+    
+    try:
+        subprocess.run([
+            "arm-none-eabi-strip",
+            "--strip-symbol=_binary_origin_EGDP_code_bin_start",
+            "--strip-symbol=_binary_origin_EGDP_code_bin_end",
+            "--strip-symbol=_binary_origin_EGDP_code_bin_size",
+            str(code_elf)
+        ], check=True, capture_output=True)
+        print("✓ Removed auto-generated symbols")
+    except subprocess.CalledProcessError:
+        # Might not exist, that's OK
+        pass
+    
+    # Step 3: Add our symbols in small batches
+    print(f"Step 3: Adding {len(symbols)} symbols...")
+    
+    # Sort symbols by address
+    sorted_symbols = sorted([s for s in symbols if s.get("name") and isinstance(s.get("address"), int)], key=lambda s: s['address'])
+    
+    # Process in batches of 25 to avoid command line limits
+    batch_size = 25
+    total_batches = (len(sorted_symbols) + batch_size - 1) // batch_size
+    
+    for batch_num in range(total_batches):
+        start_idx = batch_num * batch_size
+        end_idx = min(start_idx + batch_size, len(sorted_symbols))
+        batch = sorted_symbols[start_idx:end_idx]
+        
+        cmd = ["arm-none-eabi-objcopy"]
+        
+        for sym in batch:
+            name = sym["name"]
+            addr = sym["address"]
+            sym_type = sym.get("type", "function")
+            
+            # Calculate offset from base address
+            offset = addr - base_address
+            
+            # Determine symbol type flags
+            if sym_type == "function":
+                flags = "function,global"
+            else:
+                flags = "object,global"
+            
+            # Add symbol at section offset
+            cmd.append("--add-symbol")
+            cmd.append(f"{name}=.text:0x{offset:x},{flags}")
+        
+        cmd.append(str(code_elf))
+        
+        try:
+            subprocess.run(cmd, check=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print(f"ERROR: Failed to add symbols (batch {batch_num + 1}/{total_batches}): {e}")
+            if e.stderr:
+                stderr = e.stderr.decode()
+                print(f"  {stderr}")
+            continue
+        
+        # Progress indicator
+        if (batch_num + 1) % 10 == 0 or batch_num == total_batches - 1:
+            print(f"  Progress: {batch_num + 1}/{total_batches} batches ({end_idx}/{len(sorted_symbols)} symbols)")
+    
+    print("✓ Added all symbols")
+    
+    # Step 4: Verify the result
+    print("Step 4: Verifying ELF...")
+    
+    try:
+        # Check sections
+        result = subprocess.run(
+            ["arm-none-eabi-objdump", "-h", str(code_elf)],
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode == 0:
+            print("\nSection info:")
+            for line in result.stdout.split('\n'):
+                if '.text' in line and 'CONTENTS' in line:
+                    print(f"  {line.strip()}")
+                    
+                    # Parse and check VMA/LMA
+                    parts = line.split()
+                    try:
+                        if '.text' in parts:
+                            idx = parts.index('.text')
+                            if idx + 3 < len(parts):
+                                vma = parts[idx + 2]
+                                lma = parts[idx + 3]
+                                if vma != lma:
+                                    print(f"\n  ⚠ WARNING: VMA ({vma}) != LMA ({lma})")
+                                    print("     Objdiff may have issues. Attempting fix...")
+                                    
+                                    # Fix LMA
+                                    subprocess.run([
+                                        "arm-none-eabi-objcopy",
+                                        f"--change-section-lma=.text={base_address:#x}",
+                                        str(code_elf)
+                                    ], check=True, capture_output=True)
+                                    
+                                    print("  ✓ Fixed LMA")
+                    except (ValueError, IndexError):
+                        pass
+                    
+                    break
+        
+        # Check symbols
+        result = subprocess.run(
+            ["arm-none-eabi-nm", "-n", str(code_elf)],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        symbol_lines = [line for line in result.stdout.split('\n') if line.strip() and 'T ' in line]
+        print(f"\n✓ Verified {len(symbol_lines)} function symbols in ELF")
+        
+        if symbol_lines:
+            print("\nFirst 10 symbols:")
+            for line in symbol_lines[:10]:
+                print(f"  {line}")
+                
+    except subprocess.CalledProcessError:
+        print("WARNING: Could not verify ELF")
+    except FileNotFoundError:
+        print("WARNING: Verification tools not found")
+    
+    print(f"\n✓ ELF creation complete: {code_elf}")
+
+
+def split_elf_to_objects(symbols: List[Dict], root_dir: Path, region: str):
+    """
+    Split the main ELF into individual .o files for each function.
+    Each function starts at offset 0 in its own .o file.
+    """
+    origin_dir = root_dir / "origin" / region
+    code_elf = origin_dir / "code.elf"
+    
+    if not code_elf.exists():
+        print(f"ERROR: {code_elf} not found")
+        return
+    
+    build_dir = root_dir / "build"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create a subdirectory for target objects
+    target_dir = build_dir / "asm"
+    target_dir.mkdir(exist_ok=True)
+    
+    base_address = 0x00100000
+    
+    # Get only functions, sorted by address
+    functions = sorted([s for s in symbols if s.get("type") == "function"], key=lambda s: s["address"])
+    
+    print(f"\nSplitting ELF into {len(functions)} individual .o files...")
+    
+    # First, extract the entire .text section once
+    full_text_bin = build_dir / "full_text.bin"
+    try:
+        subprocess.run([
+            "arm-none-eabi-objcopy",
+            "-O", "binary",
+            "--only-section=.text",
+            str(code_elf),
+            str(full_text_bin)
+        ], check=True, capture_output=True)
+    except subprocess.CalledProcessError as e:
+        print(f"ERROR: Failed to extract .text section: {e}")
+        return
+    
+    # Read the entire .text section into memory
+    try:
+        with open(full_text_bin, 'rb') as f:
+            full_text_data = f.read()
+        text_size = len(full_text_data)
+        print(f"Extracted .text section: {text_size} bytes (0x{text_size:x})")
+    except Exception as e:
+        print(f"ERROR: Failed to read .text section: {e}")
+        return
+    
+    created_count = 0
+    failed_count = 0
+    
+    for i, func in enumerate(functions):
+        name = func["name"]
+        addr = func["address"]
+        size = func.get("size", 0)
+        
+        # If size is 0, calculate from next function
+        if size == 0 and i < len(functions) - 1:
+            size = functions[i + 1]["address"] - addr
+        elif size == 0:
+            # Last function, use remaining bytes
+            size = (base_address + text_size) - addr
+        
+        # Calculate file offset from base address
+        offset = addr - base_address
+        
+        # Validate offset and size
+        if offset < 0 or offset >= text_size:
+            if failed_count < 5:
+                print(f"  WARNING: {name} offset 0x{offset:x} is out of bounds (text size: 0x{text_size:x})")
+            failed_count += 1
+            continue
+        
+        if offset + size > text_size:
+            old_size = size
+            size = text_size - offset
+            if failed_count < 5:
+                print(f"  WARNING: {name} size truncated from 0x{old_size:x} to 0x{size:x}")
+        
+        if size <= 0:
+            if failed_count < 5:
+                print(f"  WARNING: {name} has invalid size {size}")
+            failed_count += 1
+            continue
+        
+        # Output object file
+        obj_file = target_dir / f"{name}.o"
+        
+        try:
+            # Step 1: Extract this function's bytes from the full text data
+            func_bytes = full_text_data[offset:offset + size]
+            
+            if len(func_bytes) != size:
+                print(f"  WARNING: {name} extracted {len(func_bytes)} bytes, expected {size}")
+            
+            # Step 2: Write to a temporary binary file
+            func_bin = build_dir / f"{name}_func.bin"
+            with open(func_bin, 'wb') as f:
+                f.write(func_bytes)
+            
+            # Step 3: Convert binary to ELF object
+            # This creates .data section with the binary data
+            subprocess.run([
+                "arm-none-eabi-objcopy",
+                "-I", "binary",
+                "-O", "elf32-littlearm",
+                "-B", "arm",
+                str(func_bin),
+                str(obj_file)
+            ], check=True, capture_output=True)
+            
+            # Step 4: Rename .data to .text and set proper flags with correct alignment
+            subprocess.run([
+                "arm-none-eabi-objcopy",
+                "--rename-section", ".data=.text,alloc,load,readonly,code,contents",
+                "--set-section-alignment", ".text=2",  # 2^2 = 4 bytes
+                str(obj_file)
+            ], check=True, capture_output=True)
+            
+            # Step 5: Strip ALL symbols, then add only our function symbol at offset 0
+            subprocess.run([
+                "arm-none-eabi-strip",
+                "--strip-all",
+                str(obj_file)
+            ], check=True, capture_output=True)
+            
+            # Step 6: Add our function symbol at offset 0
+            subprocess.run([
+                "arm-none-eabi-objcopy",
+                "--add-symbol", f"{name}=.text:0,function,global",
+                str(obj_file)
+            ], check=True, capture_output=True)
+            
+            created_count += 1
+            
+            # Clean up temp file
+            func_bin.unlink(missing_ok=True)
+            
+            # Progress indicator
+            if (i + 1) % 50 == 0 or i == len(functions) - 1:
+                print(f"  Progress: {i + 1}/{len(functions)} functions extracted")
+            
+        except subprocess.CalledProcessError as e:
+            failed_count += 1
+            if failed_count <= 5:  # Only show first few errors
+                print(f"  WARNING: Failed to extract {name}: {e}")
+                if hasattr(e, 'stderr') and e.stderr:
+                    print(f"    {e.stderr.decode()}")
+        except Exception as e:
+            failed_count += 1
+            if failed_count <= 5:
+                print(f"  WARNING: Error processing {name}: {e}")
+    
+    # Clean up the full text binary
+    full_text_bin.unlink(missing_ok=True)
+    
+    print(f"\n✓ Created {created_count} object files in {target_dir}/")
+    if failed_count > 0:
+        print(f"  ⚠ {failed_count} functions failed to extract")
+    
+    # Verify a few objects
+    if created_count > 0 and len(functions) > 0:
+        print("\nVerifying first object file...")
+        # Find the first successfully created object
+        first_func = None
+        for func in functions:
+            obj_path = target_dir / f"{func['name']}.o"
+            if obj_path.exists():
+                first_func = func
+                break
+        
+        if first_func:
+            first_obj = target_dir / f"{first_func['name']}.o"
+            try:
+                result = subprocess.run(
+                    ["arm-none-eabi-objdump", "-t", str(first_obj)],
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                print(f"  Symbol table for {first_func['name']}:")
+                for line in result.stdout.split('\n'):
+                    if first_func['name'] in line or '.text' in line:
+                        print(f"    {line}")
+            except Exception:
+                pass
 
 
 def generate_diff_settings(root_dir: Path, region: str):
     """Generate diff_settings.py for objdiff tool"""
     diff_settings = root_dir / "diff_settings.py"
     
-    content = f"""
+    content = """
 import os
 
 
@@ -430,7 +796,6 @@ def apply(config):
         "include",
     ]
 
-    config["baseimg"] = "origin/{region}/code.bin"
     config["objdump_executable"] = os.environ.get('DEVKITARM') + "/bin/arm-none-eabi-objdump"
     
     config["show_line_numbers"] = True
@@ -499,6 +864,8 @@ def generate_project(root_dir: Path, region: str):
     
     print("Generating documentation...")
     generate_symbol_map(symbols, root_dir)
+    inject_symbols_to_elf(symbols, root_dir, region)
+    split_elf_to_objects(symbols, root_dir, region)
     generate_diff_settings(root_dir, region)
     
     print("=" * 32)
