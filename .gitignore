@@ -17,8 +17,7 @@
 !src/**/*
 
 !tools/
-!tools/scripts/
-!tools/scripts/**/*.py
+!tools/*.py
 
 !.flake8
 !.gitignore
