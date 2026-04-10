@@ -214,6 +214,7 @@
  0000:0012791C       jpt_127914
  0000:00127C7C       nullsub_414
  0000:00127C80       InitFPU
+ 0000:00128C94       LightLock::Unlock
  0000:00129C08       UnknownSyncRequest_13
  0000:00129C54       UnknownSyncRequest_14
  0000:00129C90       InitCtrRuntime
@@ -239,6 +240,7 @@
  0000:0012EE84       UnknownSyncRequest_24
  0000:0012EF08       aRom
  0000:0012F05C       AtomicStoreExclusiveLoop
+ 0000:0012F074       LightLock::Lock
  0000:0012F178       InitLockedSpinlockStruct
  0000:0012F2C4       UnknownSyncRequest_25
  0000:0012F460       UnknownSyncRequest_26
@@ -275,9 +277,13 @@
  0000:00133334       jpt_13332C
  0000:00133370       def_13332C
  0000:0013364C       nn::pia::inet::NexMatchLeaveSessionJob::vfunc_15
+ 0000:00134C8C       ArbitrateAddress
  0000:00134F74       aCflres
  0000:00134F90       nullsub_161
  0000:00135504       UnknownSyncRequest_51
+ 0000:00135764       sead::CriticalSection::lock
+ 0000:0013576C       RecursiveLock::Lock
+ 0000:00135810       RecursiveLock::Unlock
  0000:00135AB0       nn::cec::CTR::MessageBox::vfunc_0
  0000:00135B54       UnknownSyncRequest_52
  0000:00135BB4       UnknownSyncRequest_53
@@ -291,6 +297,7 @@
  0000:00136CD4       ssys::ma::lyt::DummyLayout::vfunc_9
  0000:0013786C       nw::font::ResFont::vfunc_0
  0000:00137E1C       sead::ControllerMgr::vfunc_15
+ 0000:00137EA8       sead::CriticalSection::unlock
  0000:00137EB0       sead::CriticalSection::vfunc_0
  0000:00138978       nullsub_2
  0000:00138A1C       nullsub_3
@@ -9408,6 +9415,8 @@
  0000:004255F8       def_425554
  0000:004256B8       nullsub_1380
  0000:00425C80       a127FNintendoCt
+ 0000:00425DCC       j_RecursiveLock::Lock
+ 0000:00425E08       j_RecursiveLock::Unlock
  0000:00425E28       nn::pia::transport::ProcessConnectionRequestJob::vfunc_3
  0000:00425E9C       nullsub_1220
  0000:00425EA0       nn::pia::inet::NatPropertyDetecter::vfunc_11
