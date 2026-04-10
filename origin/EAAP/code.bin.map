@@ -1,4 +1,10 @@
 
+ Start         Length     Name                   Class
+ 0000:00000000 0007377C0H .text                  CODE
+ 0000:00000000 00010BA30H .rodata                CONST
+ 0000:00000000 00003D740H .data                  DATA
+ 0000:00000000 000175D54H .bss                   BSS
+
 
   Address         Publics by Value
 
@@ -291,6 +297,7 @@
  0000:00138A20       nullsub_4
  0000:00138AD4       nullsub_155
  0000:00138BB4       j_nullsub_13
+ 0000:00138C9C       sead::ThreadLocalStorage::getValue
  0000:00139524       nullsub_415
  0000:00139D48       nullsub_5
  0000:0013A01C       nullsub_156
@@ -5438,7 +5445,7 @@
  0000:00304190       nullsub_284
  0000:0030424C       NpcModel::vfunc_11
  0000:00304620       aMailSpHousing
- 0000:00304638       Thread::getCurrentHeap
+ 0000:00304638       sead::HeapMgr::getCurrentHeap
  0000:0030480C       aSvprocThread
  0000:003048FC       BsLightHemiSphereFixDemo::vfunc_19
  0000:003049C0       BsLightHemiSphereFix::vfunc_3
