@@ -208,12 +208,14 @@
  0000:001253EC       aSeadSystemmana
  0000:00125408       aSeadResourcemg
  0000:00125420       aSeadFiledevice
+ 0000:001256AC       sead::Thread::Thread
  0000:00127818       def_127814
  0000:0012781C       jpt_127814
  0000:00127918       def_127914
  0000:0012791C       jpt_127914
  0000:00127C7C       nullsub_414
  0000:00127C80       InitFPU
+ 0000:00127D40       sead::Thread::yield
  0000:00128C94       LightLock::Unlock
  0000:00129C08       UnknownSyncRequest_13
  0000:00129C54       UnknownSyncRequest_14
@@ -272,12 +274,20 @@
  0000:00130FB0       jpt_130FA8
  0000:00130FF4       def_130FA8
  0000:00131A64       aMain
- 0000:00131E80       sead::ExpHeap::create
+ 0000:00131C38       sead::Heap::pushBackChild_
+ 0000:00131CB0       sead::Heap::Heap
+ 0000:00131DE8       sead::ExpHeap::createMaxSizeFreeMemBlock_
+ 0000:00131E80       sead::ExpHeap::tryCreate
+ 0000:00131EDC       sead::ExpHeap::doCreate
+ 0000:00131F88       sead::HeapMgr::initialize
+ 0000:00132004       sead::HeapMgr::initialize1
+ 0000:001320F0       sead__IDisposer__IDisposer0
+ 0000:00132198       sead__IDisposer__IDisposer1
  0000:00132A60       graphic::CurrentSetter::vfunc_0
  0000:00133334       jpt_13332C
  0000:00133370       def_13332C
  0000:0013364C       nn::pia::inet::NexMatchLeaveSessionJob::vfunc_15
- 0000:00134C8C       ArbitrateAddress
+ 0000:00134C8C       svcArbitrateAddress
  0000:00134F74       aCflres
  0000:00134F90       nullsub_161
  0000:00135504       UnknownSyncRequest_51
@@ -296,19 +306,29 @@
  0000:001365BC       UnknownSyncRequest_59
  0000:00136CD4       ssys::ma::lyt::DummyLayout::vfunc_9
  0000:0013786C       nw::font::ResFont::vfunc_0
+ 0000:00137DAC       sead::MessageQueue::allocate
  0000:00137E1C       sead::ControllerMgr::vfunc_15
  0000:00137EA8       sead::CriticalSection::unlock
- 0000:00137EB0       sead::CriticalSection::vfunc_0
+ 0000:00137EB0       sead::CriticalSection::CriticalSectionDTor
+ 0000:00137EE4       sead::Heap::appendDisposer_
+ 0000:00137F4C       sead::Heap::findContainHeap_
+ 0000:001382F0       sead::Arena::initialize
+ 0000:001383E8       sead::ExpHeap::pushToFreeList_
+ 0000:00138584       sead::ListNode::insertBack_
+ 0000:00138620       sead::ThreadMgr::ThreadMgr
  0000:00138978       nullsub_2
  0000:00138A1C       nullsub_3
  0000:00138A20       nullsub_4
  0000:00138AD4       nullsub_155
  0000:00138BB4       j_nullsub_13
  0000:00138C9C       sead::ThreadLocalStorage::getValue
+ 0000:00139010       sead::HeapMgr::findContainHeap
  0000:00139524       nullsub_415
  0000:00139D48       nullsub_5
  0000:0013A01C       nullsub_156
  0000:0013A214       UnknownSyncRequest_60
+ 0000:0013A3A0       sead::ThreadLocalStorage::setValue
+ 0000:0013A3B0       sead::ThreadLocalStorage::ThreadLocalStorage
  0000:0013A5C8       UnknownSyncRequest_61
  0000:0013A60C       UnknownSyncRequest_62
  0000:0013A7BC       UnknownSyncRequest_63
@@ -318,6 +338,9 @@
  0000:0013A98C       UnknownSyncRequest_67
  0000:0013A9C8       UnknownSyncRequest_68
  0000:0013AC54       nw::lyt::TextBox::vfunc_28
+ 0000:0013B904       sead::CriticalSection::CriticalSection
+ 0000:0013B950       sead::MainThread::MainThread
+ 0000:0013BB24       sead::ListNode::erase_
  0000:0013BC20       dLoadSplit::vfunc_0
  0000:0013BC24       ssys::ma::LoadSplit::vfunc_0
  0000:0013BF00       nullsub_164
@@ -342,7 +365,7 @@
  0000:0013EF54       sead::MainFileDevice::vfunc_13
  0000:0013EFC4       sead::AudioResourceLoaderCtr::vfunc_2
  0000:0013EFD4       sead::Graphics::vfunc_0
- 0000:0013EFD8       sead::IDisposer::vfunc_0
+ 0000:0013EFD8       sead::IDisposer::IDisposerDTor
  0000:0013F2A8       nn::fs::FileStream::vfunc_8
  0000:0013F438       jpt_13F430
  0000:0013F488       def_13F430
@@ -353,6 +376,7 @@
  0000:00140514       UnknownSyncRequest_74
  0000:00140558       UnknownSyncRequest_75
  0000:00141550       sead::AudioFxCtr::vfunc_2
+ 0000:00141674       sead::Heap::removeDisposer_
  0000:00142454       nn::fnd::UnitHeapTemplate_nn::os::LockPolicy::Object_nn::os::CriticalSection::::vfunc_0
  0000:00142A18       UnknownSyncRequest_76
  0000:001430E0       UnknownSyncRequest_77
@@ -6601,6 +6625,7 @@
  0000:0034AA08       nn::os::ThreadPool::vfunc_1
  0000:0034ABD8       nullsub_1036
  0000:0034ACF4       nullsub_1037
+ 0000:0034AD90       sead::ThreadLocalStorage::ThreadLocalStorageDTor
  0000:0034B0FC       nn::os::_anonymous_namespace::_DefaultAutoStackManager::vfunc_3
  0000:0034B154       nn::os::_anonymous_namespace::_DefaultAutoStackManager::vfunc_2
  0000:0034B1F8       nn::os::_anonymous_namespace::_DefaultAutoStackManager::vfunc_1
@@ -11651,6 +11676,7 @@
  0000:0051A410       nfp::Thread::vfunc_0
  0000:0051A438       nullsub_1498
  0000:0051A554       aNfpFramework
+ 0000:0051A564       stack_size
  0000:0051A8D0       nullsub_1499
  0000:0051B210       nfp::Framework::Step::vfunc_1
  0000:0051B214       nullsub_1500
@@ -12641,8 +12667,9 @@
  0000:0054C754       sead::Heap::vfunc_23
  0000:0054C758       sead::FrameHeap::vfunc_24
  0000:0054C7D8       aSeadMetaHeap03
- 0000:0054C968       sead::Heap::vfunc_1
- 0000:0054C994       sead::Heap::vfunc_0
+ 0000:0054C890       sead::Heap::freeAll
+ 0000:0054C968       sead::Heap::HeapDTor1
+ 0000:0054C994       sead::Heap::HeapDTor
  0000:0054D0B4       sead::ptcl::PtclEditor::vfunc_3
  0000:0054D464       sead::ptcl::PtclEditor::vfunc_2
  0000:0054D474       sead::ptcl::PtclEditor::vfunc_1
@@ -12692,7 +12719,7 @@
  0000:0055BEB4       qrdecode::Camera::Thread::vfunc_8
  0000:0055BEFC       sead::Thread::vfunc_1
  0000:0055BF0C       ProcThread::vfunc_0
- 0000:0055BF10       sead::Thread::vfunc_0
+ 0000:0055BF10       sead::Thread::ThreadDTor
  0000:0055C06C       nullsub_1568
  0000:0055C508       sead::AudioFx::vfunc_3
  0000:0055C70C       sead::ExpHeap::vfunc_9
@@ -31237,6 +31264,7 @@
  0000:00903694       _ZTVN4sead14SafeStringBaseIwEE
  0000:009036A8       _ZTVN4sead15CriticalSectionE
  0000:009036AC       vtable_sead::CriticalSection
+ 0000:009036B0       sead::CriticalSection::vtable
  0000:009036B8       _ZTVN4sead15DrawLockContextE
  0000:009036BC       vtable_sead::DrawLockContext
  0000:009036C4       _ZTVN4sead15FixedSafeStringILi1024EEE
@@ -31602,12 +31630,14 @@
  0000:00904E54       _ZTVN4sead9HostIOMgr9ParameterE
  0000:00904E58       vtable_sead::HostIOMgr::Parameter
  0000:00904E64       _ZTVN4sead9IDisposerE
+ 0000:00904E6C       IDisposer::vtable
  0000:00904E74       _ZTVN4sead9TaskEventE
  0000:00904E78       vtable_sead::TaskEvent
  0000:00904E84       _ZTVN4sead9ThreadMgr18SingletonDisposer_E
  0000:00904E88       vtable_sead::ThreadMgr::SingletonDisposer_
  0000:00904E94       _ZTVN4sead9ThreadMgrE
  0000:00904E98       vtable_sead::ThreadMgr
+ 0000:00904E9C       sead::ThreadMgr::vtable
  0000:00904EA8       _ZTVN4ssys2co9FaderBaseE
  0000:00904ED0       _ZTVN4ssys2ma10FlushCache18SingletonDisposer_E
  0000:00904ED4       vtable_ssys::ma::FlushCache::SingletonDisposer_
@@ -43299,6 +43329,7 @@
  0000:00974338       sead::HeapMgr::sInstancePtr
  0000:0097433C       sead::HeapMgr::sArena
  0000:00974340       sead::HeapMgr::sHeapCheckTag
+ 0000:00974344       sead::HeapMgr::sInstance
  0000:00974348       sead::HeapMgr::mAllocFailedCallback
  0000:009743D0       sead::ThreadMgr::sInstance
  0000:009743D4       sead::ThreadMgr::SingletonDisposer_::sStaticDisposer
@@ -43312,3 +43343,7 @@
  0000:00980FA4       aRwstderr1
  0000:00981180       aSzaHSzoHAlwHAl
  0000:009811F8       aPlcHPlaHSntHPk
+ 0000:00AE43AC       sead::HeapMgr::sDefaultArena
+ 0000:00AE43B8       sead::HeapMgr::sRootHeaps
+ 0000:00AE43D4       sead::HeapMgr::sHeapTreeLockCS
+ 0000:00AE43F0       sead::HeapMgr::sIndependentHeaps

@@ -1,6 +1,10 @@
 #include "Application.hpp"
 
-int Application::ClearRegion()
+namespace Garden
 {
-    return 0;
+    int Application::ClearRegion()
+    {
+        return 0;
+    }
+
 }

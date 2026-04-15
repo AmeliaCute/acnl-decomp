@@ -1,5 +1,9 @@
-class Application
+
+namespace Garden
 {
-    public:
-    static int ClearRegion();
-};
+    class Application
+    {
+        public:
+        static int ClearRegion();
+    };
+}
